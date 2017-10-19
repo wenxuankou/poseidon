@@ -4,12 +4,11 @@ module Poseidon
 
     def initialize(sockets, app, writable_pipe, connection = nil)
       @sockets, @app, @writable_pipe = sockets, app, writable_pipe
-      @http_parser = HttpParser.new
 
       @clients = {}
 
       if connection
-        @clients[connection.fileno] = Connection.new(connection, @http_parser)
+        @clients[connection.fileno] = Connection.new(connection, @app)
       end
     end
     
@@ -45,9 +44,26 @@ module Poseidon
     end
 
     def iterate_readables(io_list)
+      io_list.map do |io|
+        if @sockets.include?(io)
+          # is sock
+          @clients[io.fileno] = Connection.new(io.accept, @app)
+          nil
+        else
+          # is connection
+          @clients[io.fileno].readable!
+        end
+      end.each do |fileno|
+        @clients.delete fileno
+      end
     end
 
     def iterate_writables(io_list)
+      io_list.map do |io|
+        @clients[io.fileno].writable!
+      end.each do |fileno|
+        @clients.delete fileno
+      end
     end
 
   end

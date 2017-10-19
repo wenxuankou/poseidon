@@ -10,7 +10,8 @@ module Poseidon
       config_ru_path: 'config.ru',
       stderr: $stderr,
       stdout: $stdout,
-      logger: nil
+      logger: nil,
+      protocol_parser: nil
     }
 
     class << self
