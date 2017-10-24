@@ -5,6 +5,8 @@ module Poseidon
     include Singleton
 
     def start
+      $PROGRAM_NAME = "poseidon-monitor"
+
       sockets = Socket.tcp_server_sockets(Config.host, Config.port)
 
       Logger.info "Poseidon #{VERSION}"

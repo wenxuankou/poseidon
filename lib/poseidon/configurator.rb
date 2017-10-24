@@ -3,10 +3,11 @@ module Poseidon
   module Configurator
     
     ALL_OPTIONS = {
+      root_path: nil,
       port: 8088,
       host: nil,
-      workers: 2,
-      timeout: 30,
+      workers: 1,
+      time_out: 300,
       config_ru_path: 'config.ru',
       stderr: $stderr,
       stdout: $stdout,
@@ -18,7 +19,7 @@ module Poseidon
 
       ALL_OPTIONS.each do |option, default_value|
         define_method(option) do |*arg|
-          arg = *arg.shift
+          arg = arg.shift
           if arg
             instance_variable_set("@#{option}", arg)
           else

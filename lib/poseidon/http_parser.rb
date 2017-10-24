@@ -1,8 +1,18 @@
 module Poseidon
 
   class HttpParser
+
+    def initialize
+    end
+
+    def reset
+      @env = {}
+
+      self
+    end
     
-    def parse(env, data)
+    def parse(data)
+      @env
     end
 
   end

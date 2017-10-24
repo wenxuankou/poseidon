@@ -9,6 +9,7 @@ gem 'rack'
 gem 'launchy'
 
 group :test do 
+  gem 'byebug'
   gem 'sinatra'
   gem 'minitest'
 end

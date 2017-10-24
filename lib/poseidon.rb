@@ -11,6 +11,7 @@ module Poseidon
   # Your code goes here...
   
   autoload :Configurator,     "poseidon/configurator"
+  autoload :Config,           "poseidon/configurator"
   autoload :Logger,           "poseidon/logger"
   autoload :Monitor,          "poseidon/monitor"
   autoload :HttpParser,       "poseidon/http_parser"

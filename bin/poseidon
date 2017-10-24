@@ -1,0 +1,9 @@
+#! /usr/bin/env ruby
+
+THIS_FILE = File.symlink?(__FILE__) ? File.readlink(__FILE__) : __FILE__
+$LOAD_PATH << File.dirname(THIS_FILE) + '/../lib'
+require 'poseidon'
+require 'optparse'
+
+Poseidon::Config.root_path File.expand_path("../../", __FILE__)
+Poseidon::Server.instance.start

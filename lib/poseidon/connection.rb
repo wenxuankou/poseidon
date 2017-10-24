@@ -2,116 +2,134 @@ module Poseidon
   
   class Connection
 
-    attr_reader :client
+    attr_reader :client, :request_hash
 
     CRLF = "\r\n"
     CHUNK_SIZE = 1024 * 16
 
-    def initialize(connection, app)
-      @app = app
+    def initialize(connection)
       @client = connection
-      @protocol_parser = HttpParser.new
-      @response = ""
-
-      @request_line = nil
-      @request_headers_raw = ""
-      @request_headers = []
-      @headers = {}
-
-      @body = ""
+      @request_hash = {}
+      @get_sep_flag = false
       @remain_body_size = nil
+      @response = nil
     end
 
     def ready_to_read?
-      true
+      @remain_body_size != 0
     end
 
     def ready_to_write?
-      !@response.empty?
+      @response.respond_to? :each
+    end
+
+    def ready_to_handle?
+      @remain_body_size == 0 && @response.nil?
+    end
+
+    def request_raw
+      return unless ready_to_handle?
+
+      @request_hash["headers_raw"].to_s + CRLF + @request_hash["body_raw"].to_s
+    end
+
+    def response=(response)
+      @response = response
+      @response_status, @response_headers, @response_body = *response
+      _body = ""
+      @response_body.each { |msg| _body << msg }
+      @response_body.close if @response_body.respond_to? :close
+      @response_body = _body
+    end
+
+    def reset
+      @request_hash.clear
+      @get_sep_flag = false
+      @remain_body_size = nil
+      @response_data = nil
+      @response = nil
+
+      self
     end
 
     def readable!
       begin
-        on_data(_read_data(@client, :read_nonblock, @remain_body_size || CHUNK_SIZE))
-        handle_request if @remain_body_size == 0
+        on_data
         nil
       rescue Errno::EAGAIN
       rescue IOError
-        @client.fileno
+        close
       end
+    end
+
+    def on_data
+      @get_sep_flag ? read_body : read_header
+    end
+
+    def read_body
+      return unless @get_sep_flag
+      
+      @request_hash["body_raw"] ||= ""
+      data = _read_data(@client, :read_nonblock, @remain_body_size)
+      @request_hash["body_raw"] << data
+      @remain_body_size = @remain_body_size - data.bytesize
+    end
+
+    def read_header
+      @request_hash["headers_raw"] ||= ""
+      head_line = _read_data(@client, :gets, CRLF)
+      if head_line == CRLF
+        @get_sep_flag = true
+        format_headers
+      else
+        @request_hash["headers_raw"] << head_line
+      end
+    end
+
+    def format_headers
+      return unless @get_sep_flag
+
+      headers = @request_hash["headers_raw"].split(CRLF)
+
+      @request_hash["request_line"] = headers.shift
+
+      _method, _full_path, _version = @request_hash["request_line"].split(" ")
+      @request_hash["method"] = _method
+      @request_hash["full_path"] = _full_path
+      @request_hash["http_version"] = _version
+
+      headers.each do |head_line|
+        key, value = head_line.split(": ")
+        @request_hash[key] = value
+      end
+
+      @remain_body_size = @request_hash["Content-Length"].to_i
     end
 
     def _read_data(io, method, *arg)
-      io.send(method.to_sym, *arg)
-    end
-
-    def on_data(data)
-      return unless data
-
-      if header_parsed? 
-        # all data is http body
-        @body << data
-        @remain_body_size = @headers["Content-Length"].to_i - @body.bytesize
-      else
-        # data is http head and body
-        _head, _body = data.split(/#{CRLF}{2,}/)
-        @request_headers_raw = _head
-        parse_headers!
-        on_data(_body) if !_body.nil? && !_body.empty?
-      end
-    end
-
-    def header_parsed?
-      !!@request_line
-    end
-
-    def parse_headers!
-      @request_headers = @request_headers_raw.split CRLF
-      @request_line = @request_headers.shift
-      @request_headers.each do |header|
-        key, value = header.split(':')
-        @headers[key.strip] = value.strip
-      end
-      @remain_body_size = @headers["Content-Length"].to_i
-    end
-
-    def handle_request
-      @protocol_parser.parse nil, nil
-
-      status, headers, body = @app.call nil
-
-      head = 
-        "HTTP/1.1 #{status}#{CRLF}" \
-        "Date: #{Time.now.httpdate}#{CRLF}" \
-        "Status: #{Rack::Utils::HTTP_STATUS_CODES[status]}#{CRLF}" \
-        "Connection: close#{CRLF}"
-      headers.each do |k,v|
-        head << "#{k}: #{v}#{CRLF}"
-      end
-      @response << head << CRLF
-
-      body.each { |b| @response << b }
-      body.close if body.respond_to?(:close)
+      io.__send__(method, *arg)
     end
 
     def writable!
       begin
-        bytes = @client.write_nonblock @response
-        @response.slice! 0, bytes
-        @response.empty? ? close : nil
+        bytes = @client.write_nonblock @response_body
+        @response_body.slice! 0, bytes
+        @response_body.empty? ? close : nil
       rescue Errno::EAGAIN
       rescue IOError
-        @client.fileno
+        close
       end
     end
 
     def close
+      _fileno = @client.fileno
+
       begin
         @client.close
       rescue IOError
       end
 
-      @client.fileno
+      _fileno
     end
 
   end
