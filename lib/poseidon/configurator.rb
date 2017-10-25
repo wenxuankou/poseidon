@@ -12,7 +12,8 @@ module Poseidon
       stderr: $stderr,
       stdout: $stdout,
       logger: nil,
-      protocol_parser: nil
+      protocol_parser: nil,
+      ssl: false
     }
 
     class << self

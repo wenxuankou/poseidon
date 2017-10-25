@@ -1,3 +1,11 @@
+# Worker
+# ======
+# 
+# 每一个woker都是一个工作进程，用于处理客户端的连接，并且向master进程
+# 发送心跳通信，每一个worker都采用了非阻塞IO的方式工作，以此获得良好
+# 的性能
+#
+
 module Poseidon
 
   class Worker
@@ -101,18 +109,20 @@ module Poseidon
 
       conn_list.each do |conn|
         env = @protocol_parser.reset.parse(conn.request_raw)
-        conn.response = @app.call rack_env_init.merge(env)
+        conn.response = @app.call(rack_env_init(conn).merge(env))
       end
     end
 
-		def rack_env_init
+		def rack_env_init(conn)
       env = { 
-        'rack.input' => StringIO.new(''.encode!(Encoding::ASCII_8BIT)),
+        'rack.input' => StringIO.new(conn.request_body_raw.encode!(Encoding::ASCII_8BIT)),
         'rack.multithread' => false,
         'rack.multiprocess' => true,
         'rack.run_once' => false,
         'rack.errors' => STDERR,
-        'rack.version' => [1, 0]
+        'rack.version' => [1, 3],
+        'rack.url_scheme' => "HTTP",
+        'rack.hijack?' => false
       }
 		end
 

@@ -1,3 +1,12 @@
+# Master
+# ======
+# 
+# master进程用于监控woker进程的状态，并对woker进程进行管理
+# master与woker之间采用管道通信，并且捕获并处理了各种信号，
+# 可以借此实现更为丰富的功能，但是Poseidon并不会做这么复杂，
+# 以后可能会完善
+#
+
 module Poseidon
 
   class Master

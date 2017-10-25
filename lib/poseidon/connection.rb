@@ -1,3 +1,11 @@
+# Connection
+# =========
+# 
+# 用于处理连接的读写操作，由于Poseidon在协议解析上没有做太多的
+# 工作，只支持基础的数据传输方式，比如分块传输就不支持，大多数
+# 主流Ruby App Server都采用了C语言扩展来处理协议解析相关工作，
+# 这里我们不会用到
+
 module Poseidon
   
   class Connection
@@ -5,7 +13,6 @@ module Poseidon
     attr_reader :client, :request_hash
 
     CRLF = "\r\n"
-    CHUNK_SIZE = 1024 * 16
 
     def initialize(connection)
       @client = connection
@@ -28,18 +35,35 @@ module Poseidon
     end
 
     def request_raw
-      return unless ready_to_handle?
+      return "" unless ready_to_handle?
 
       @request_hash["headers_raw"].to_s + CRLF + @request_hash["body_raw"].to_s
     end
 
+    def request_body_raw
+      return "" unless ready_to_handle?
+
+      @request_hash["body_raw"].to_s
+    end
+
     def response=(response)
       @response = response
-      @response_status, @response_headers, @response_body = *response
+      response_status, response_headers, response_body = *response
+
       _body = ""
-      @response_body.each { |msg| _body << msg }
-      @response_body.close if @response_body.respond_to? :close
-      @response_body = _body
+      response_body.each { |msg| _body << msg }
+      response_body.close if response_body.respond_to? :close
+
+      @response_data = "HTTP/1.1 #{response_status}#{CRLF}" \
+                       "Date: #{Time.now.httpdate}#{CRLF}" \
+                       "Status: #{Rack::Utils::HTTP_STATUS_CODES[response_status]}#{CRLF}" \
+                       "Connection: close#{CRLF}"
+
+      response_headers.each do |k,v|
+        @response_data << "#{k}: #{v}#{CRLF}"
+      end
+      @response_data << "#{CRLF}"
+      @response_data << _body
     end
 
     def reset
@@ -71,7 +95,7 @@ module Poseidon
       
       @request_hash["body_raw"] ||= ""
       data = _read_data(@client, :read_nonblock, @remain_body_size)
-      @request_hash["body_raw"] << data
+      @request_hash["body_raw"] << data.to_s
       @remain_body_size = @remain_body_size - data.bytesize
     end
 
@@ -82,7 +106,7 @@ module Poseidon
         @get_sep_flag = true
         format_headers
       else
-        @request_hash["headers_raw"] << head_line
+        @request_hash["headers_raw"] << head_line.to_s
       end
     end
 
@@ -93,10 +117,8 @@ module Poseidon
 
       @request_hash["request_line"] = headers.shift
 
-      _method, _full_path, _version = @request_hash["request_line"].split(" ")
+      _method, = @request_hash["request_line"].split(" ")
       @request_hash["method"] = _method
-      @request_hash["full_path"] = _full_path
-      @request_hash["http_version"] = _version
 
       headers.each do |head_line|
         key, value = head_line.split(": ")
@@ -112,9 +134,9 @@ module Poseidon
 
     def writable!
       begin
-        bytes = @client.write_nonblock @response_body
-        @response_body.slice! 0, bytes
-        @response_body.empty? ? close : nil
+        bytes = @client.write_nonblock @response_data
+        @response_data.slice! 0, bytes
+        @response_data.empty? ? close : nil
       rescue Errno::EAGAIN
       rescue IOError
         close

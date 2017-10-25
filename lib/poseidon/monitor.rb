@@ -1,4 +1,6 @@
-# ---
+# Monitor
+# ======
+#
 # Monitor主要负责激活Master，并且接收闲时请求，交给Master处理，
 # 服务启动后，我们仅仅只是启动了一个Monitor，当Monitor收到连接
 # 时，会激活Master，并将连接交付给它，随后Master会开始工作，衍
@@ -7,7 +9,6 @@
 # 并且自我退出，随即继续由Monitor来接收空闲时期的连接，如果新的
 # 连接到来，将重新激活Master，如此反复！以这种方式达到服务的可
 # 伸缩，在没有多余请求需要处理的时候，关闭Worker进程
-# ---
 
 module Poseidon
 
@@ -46,6 +47,8 @@ module Poseidon
             Process.kill(signal, @master_pid) if @master_pid
           rescue Errno::ESRCH
           end
+
+          Logger.info "===== Gracefully Shutdown! ====="
 
           Process.exit
         end

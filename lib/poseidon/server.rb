@@ -1,3 +1,8 @@
+# Server
+# =====
+#
+#
+
 module Poseidon
   
   class Server
@@ -12,11 +17,11 @@ module Poseidon
       Logger.info "Poseidon #{VERSION}"
       Logger.info "Listening on port #{sockets.first.local_address.ip_address}:#{Config.port}"
       Logger.info "Listening on port #{sockets.last.local_address.ip_address}:#{Config.port}"
+      
+      Logger.info "===== Poseidon start done. ====="
 
       # 由监视器控制当前server是否处于活跃状态
       Monitor.instance.start(sockets)
-      
-      Logger.info "Poseidon start done."
     end
 
   end
