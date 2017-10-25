@@ -55,10 +55,10 @@ module Poseidon
 
       @env["REQUEST_METHOD"] = _method.upcase
       # This may be an empty string, if the application corresponds to the “root” of the server.
-      @env["SCRIPT_NAME"] = '/'
+      @env["SCRIPT_NAME"] = ''
       # if the request URL targets the application root and does not have a trailing slash. 
       # This value may be percent-encoded when originating from a URL.
-      @env["PATH_INFO"] = path || '/'
+      @env["PATH_INFO"] = path || ''
       # The portion of the request URL that follows the ?, if any. May be empty, but is always required!
       @env["QUERY_STRING"] = query || ''
     end

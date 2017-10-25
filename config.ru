@@ -1,7 +1,19 @@
-app = lambda do |env|
-  p env
-  body = "Hello, World!"
-  [200, {"Content-Type" => "text/plain"}, [body]]
+require 'rack/lint'
+require 'sinatra'
+
+get '/user/:id' do 
+  p params
+  "hi nick!"
 end
 
-run app
+post '/user' do 
+  p params
+  "create user"
+end
+
+get '/redirect' do 
+  redirect 'https://www.baidu.com'
+end
+
+use Rack::Lint
+run Sinatra::Application

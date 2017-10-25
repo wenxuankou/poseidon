@@ -120,8 +120,8 @@ module Poseidon
         'rack.multiprocess' => true,
         'rack.run_once' => false,
         'rack.errors' => STDERR,
-        'rack.version' => [1, 3],
-        'rack.url_scheme' => "HTTP",
+        'rack.version' => [2, 0],
+        'rack.url_scheme' => "http",
         'rack.hijack?' => false
       }
 		end
