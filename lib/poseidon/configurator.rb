@@ -3,7 +3,7 @@ module Poseidon
   module Configurator
     
     ALL_OPTIONS = {
-      root_path: nil,
+      app: nil,
       port: 8088,
       host: nil,
       workers: 1,

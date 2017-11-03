@@ -2,8 +2,64 @@
 
 THIS_FILE = File.symlink?(__FILE__) ? File.readlink(__FILE__) : __FILE__
 $LOAD_PATH << File.dirname(THIS_FILE) + '/../lib'
+
 require 'poseidon'
 require 'optparse'
 
-Poseidon::Config.root_path File.expand_path("../../", __FILE__)
+opts = OptionParser.new do |opts|
+  opts.banner = "Usage: poseidon [options]"
+
+  opts.separator ""
+  opts.separator "Ruby options:"
+
+  opts.on("-e", "--eval LINE", 
+          "evaluate a LINE of code") { |line|
+    eval line, TOPLEVEL_BINDING, "--eval error", 1
+    exit
+  }
+
+  opts.on("-I", "--include PATH",
+          "specify $LOAD_PATH (may be used more than once, use ':' separates)") { |path|
+    $LOAD_PATH.unshift(path.split(":"))
+  }
+
+  opts.on("-r", "--require LIBRARY",
+          "require the library, before executing your script") { |library|
+    require library
+  }
+
+  opts.separator ""
+  opts.separator "Poseidon options:"
+
+  opts.on("-p", "--port PORT", "use PORT (default: 8088)") { |port|
+    Poseidon::Config.port port
+  }
+
+  opts.on("-o", "--host HOST", "Bind on HOST (default: 0.0.0.0)") { |host|
+    Poseidon::Config.host host
+  }
+
+  opts.on("-c", "--configru FILE", "Load the rackup file at FILE (default: config.ru in current directory)") { |path|
+    Poseidon::Config.config_ru_path path
+  }
+
+  opts.on("-w", "--workers COUNT", "Prefork COUNT workers when handling requests (default: 1)") { |count|
+    Poseidon::Config.workers count.to_i
+  }
+
+  opts.separator ""
+  opts.separator "Common options:"
+
+  opts.on_tail("-h", "--help", "Show this message") do |value|
+    puts opts
+    exit
+  end
+
+  opts.on_tail("-v", "--version", "Show version") do |value|
+    puts "Poseidon Version: " + Poseidon::VERSION
+    exit
+  end
+end
+
+opts.parse!(ARGV)
 Poseidon::Server.instance.start

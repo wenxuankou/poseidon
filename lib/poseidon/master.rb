@@ -10,7 +10,7 @@
 module Poseidon
 
   class Master
-    
+
     def initialize(connection, sockets)
       @conn = connection
       @sockets = sockets
@@ -78,7 +78,8 @@ module Poseidon
     end
 
     def load_app!
-      @app, options = Rack::Builder.parse_file(File.expand_path(Config.config_ru_path, Config.root_path))
+      Config.app(Rack::Builder.parse_file(Config.config_ru_path).first) if Config.app.nil?
+      @app = Config.app
     end
 
     def trap_signals
@@ -94,7 +95,7 @@ module Poseidon
           begin
             @write_signal_pipe.puts signal.to_s
           rescue IOError
-             Logger.error "when signal puts: #{$!}"
+            Logger.error "when signal puts: #{$!}"
           end
         end
       end
