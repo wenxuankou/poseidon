@@ -4,11 +4,9 @@ class HttpParserTest < Minitest::Test
 
   def setup
     @parser = ::Poseidon::HttpParser.new
-    @data = <<-REQUEST
-      GET /user/1?name=nick&age=20 HTTP/1.1
-      Host: localhost:8088
-      Cache-Control: no-cache
-    REQUEST
+    @data = "GET /user/1?name=nick&age=20 HTTP/1.1\r\n" + 
+      "Host: localhost:8088\r\n" + 
+      "Cache-Control: no-cache\r\n\r\n"
   end
 
   def test_parse
@@ -21,7 +19,7 @@ class HttpParserTest < Minitest::Test
     assert_equal "localhost", env["SERVER_NAME"]
     assert_equal "8088", env["SERVER_PORT"]
     assert_equal "localhost:8088", env["HTTP_HOST"]
-    assert_equal "no-cache", env["Cache-Control"]
+    assert_equal "no-cache", env["HTTP_CACHE_CONTROL"]
   end
 
 end
