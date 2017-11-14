@@ -12,4 +12,5 @@ group :test do
   gem 'byebug'
   gem 'sinatra'
   gem 'minitest'
+  gem 'excon'
 end
