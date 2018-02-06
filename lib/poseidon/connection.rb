@@ -3,8 +3,7 @@
 # 
 # 用于处理连接的读写操作，由于Poseidon在协议解析上没有做太多的
 # 工作，只支持基础的数据传输方式，比如分块传输就不支持，大多数
-# 主流Ruby App Server都采用了C语言扩展来处理协议解析相关工作，
-# 这里我们不会用到
+# 主流Ruby App Server都采用了C语言扩展来处理协议解析相关工作
 
 module Poseidon
   
@@ -13,17 +12,42 @@ module Poseidon
     attr_reader :client, :request_hash
 
     CRLF = "\r\n"
+    DEFAULT_READ_CHUNK_SIZE = 16 * 1024
 
-    def initialize(connection)
+    def initialize(connection, app)
       @client = connection
-      @request_hash = {}
-      @get_sep_flag = false
-      @remain_body_size = nil
+      @app = app
+
       @response = nil
+
+      # 协议解析器
+      @parser = ::Http::Parser.new(self)
+    end
+
+    def receive_data(data)
+      @parser << data
+    end
+
+    def on_message_begin
+      @headers = nil
+      @body = ''
+      @complete = false
+    end
+
+    def on_headers_complete(headers)
+      @headers = headers
+    end
+
+    def on_body(chunk)
+      @body << chunk
+    end
+
+    def on_message_complete
+      @complete = true
     end
 
     def ready_to_read?
-      @remain_body_size != 0
+      !@complete
     end
 
     def ready_to_write?
@@ -31,19 +55,7 @@ module Poseidon
     end
 
     def ready_to_handle?
-      @remain_body_size == 0 && @response.nil?
-    end
-
-    def request_raw
-      return "" unless ready_to_handle?
-
-      @request_hash["headers_raw"].to_s + CRLF + @request_hash["body_raw"].to_s
-    end
-
-    def request_body_raw
-      return "" unless ready_to_handle?
-
-      @request_hash["body_raw"].to_s
+      @complete && @response.nil?
     end
 
     def response=(response)
@@ -66,16 +78,6 @@ module Poseidon
       @response_data << _body
     end
 
-    def reset
-      @request_hash.clear
-      @get_sep_flag = false
-      @remain_body_size = nil
-      @response_data = nil
-      @response = nil
-
-      self
-    end
-
     def readable!
       begin
         on_data
@@ -87,49 +89,7 @@ module Poseidon
     end
 
     def on_data
-      @get_sep_flag ? read_body : read_header
-    end
-
-    def read_body
-      return unless @get_sep_flag
-      
-      @request_hash["body_raw"] ||= ""
-      data = _read_data(@client, :read_nonblock, @remain_body_size)
-      @request_hash["body_raw"] << data.to_s
-      @remain_body_size = @remain_body_size - data.bytesize
-    end
-
-    def read_header
-      @request_hash["headers_raw"] ||= ""
-      head_line = _read_data(@client, :gets, CRLF)
-      if head_line == CRLF
-        @get_sep_flag = true
-        format_headers
-      else
-        @request_hash["headers_raw"] << head_line.to_s
-      end
-    end
-
-    def format_headers
-      return unless @get_sep_flag
-
-      headers = @request_hash["headers_raw"].split(CRLF)
-
-      @request_hash["request_line"] = headers.shift
-
-      _method, = @request_hash["request_line"].split(" ")
-      @request_hash["method"] = _method
-
-      headers.each do |head_line|
-        key, value = head_line.split(": ")
-        @request_hash[key] = value
-      end
-
-      @remain_body_size = @request_hash["Content-Length"].to_i
-    end
-
-    def _read_data(io, method, *arg)
-      io.__send__(method, *arg)
+      receive_data @client.read_nonblock(DEFAULT_READ_CHUNK_SIZE)
     end
 
     def writable!
@@ -152,6 +112,76 @@ module Poseidon
       end
 
       _fileno
+    end
+
+    def eval_rack_app
+      return unless ready_to_handle?
+
+      env = get_rack_env
+      self.response = @app.call(rack_env_init.merge(env))
+    end
+
+		def rack_env_init
+      env = { 
+        'rack.input' => StringIO.new(@body.encode!(Encoding::ASCII_8BIT)),
+        'rack.multithread' => false,
+        'rack.multiprocess' => true,
+        'rack.run_once' => false,
+        'rack.errors' => $stderr,
+        'rack.version' => [2, 0],
+        'rack.url_scheme' => "http",
+        'rack.hijack?' => false
+      }
+		end
+
+    def get_rack_env
+      @env = {}
+
+      # 设置请求行相关env数据
+      set_request_info(@headers)
+      # 设置Host数据
+      set_host_info(@headers["Host"])
+      # 格式化http头
+      format_http_variables(@headers)
+
+      @env
+    end
+
+    def set_request_info(header_hash)
+      @env["SERVER_PROTOCOL"] = 'HTTP/' + @parser.http_version.join('.')
+      @env["REQUEST_METHOD"] = @parser.http_method
+      # This may be an empty string, if the application corresponds to the “root” of the server.
+      @env["SCRIPT_NAME"] = ''
+      # if the request URL targets the application root and does not have a trailing slash. 
+      # This value may be percent-encoded when originating from a URL.
+      path_info, query = @parser.request_url.split('?')
+      @env["PATH_INFO"] = path_info || ''
+      # The portion of the request URL that follows the ?, if any. May be empty, but is always required!
+      @env["QUERY_STRING"] = query || ''
+    end
+
+    def set_host_info(host)
+      return unless host
+
+      server, port = host.split ":"
+
+      @env["SERVER_NAME"] = server || ""
+      @env["SERVER_PORT"] = port || "80"
+    end
+
+    # Variables corresponding to the client-supplied HTTP request headers 
+    # (i.e., variables whose names begin with HTTP_).
+    def format_http_variables(header_hash)
+      header_hash.each do |key, value|
+        key = key.split("-").join("_").upcase
+        if "CONTENT_LENGTH" == key
+          @env[key] = value
+        elsif "CONTENT_TYPE" == key
+          @env[key] = value
+        else
+          @env["HTTP_#{key}"] = value
+        end
+      end
     end
 
   end

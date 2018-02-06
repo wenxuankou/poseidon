@@ -15,14 +15,12 @@ module Poseidon
     def initialize(sockets = nil, app = nil, worker_pipe = nil, connection = nil)
       @sockets, @app, @worker_pipe = sockets, app, worker_pipe
 
-      @protocol_parser = HttpParser.new
-
       # 存储客户端待处理连接
       @clients = {}
 
       # 将已经得到的连接加入待处理
       if connection
-        @clients[connection.fileno] = Connection.new(connection)
+        @clients[connection.fileno] = Connection.new(connection, @app)
       end
     end
     
@@ -75,7 +73,7 @@ module Poseidon
         if @sockets.include?(io)
           # is sock
           _conn, _addrinfo = io.accept
-          @clients[_conn.fileno] = Connection.new(_conn)
+          @clients[_conn.fileno] = Connection.new(_conn, @app)
           # 发送心跳
           heartbeat!
           nil
@@ -108,23 +106,10 @@ module Poseidon
       return if conn_list.nil? || conn_list.empty?
 
       conn_list.each do |conn|
-        env = @protocol_parser.reset.parse(conn.request_raw)
-        conn.response = @app.call(rack_env_init(conn).merge(env))
+        # 调用Rack应用处理请求
+        conn.eval_rack_app
       end
     end
-
-		def rack_env_init(conn)
-      env = { 
-        'rack.input' => StringIO.new(conn.request_body_raw.encode!(Encoding::ASCII_8BIT)),
-        'rack.multithread' => false,
-        'rack.multiprocess' => true,
-        'rack.run_once' => false,
-        'rack.errors' => STDERR,
-        'rack.version' => [2, 0],
-        'rack.url_scheme' => "http",
-        'rack.hijack?' => false
-      }
-		end
 
   end
 

@@ -3,6 +3,7 @@ require "socket"
 require "singleton"
 require "stringio"
 require "time"
+require "http/parser"
 
 require "rack"
 require "rack/utils"

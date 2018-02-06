@@ -54,7 +54,7 @@ module Poseidon
             # 向管道发送退出信号
             @write_signal_pipe.puts "QUIT"
           else
-            @readable_pipe.read_nonblock 1
+            @master_pipe.read_nonblock 1
           end
         end
       end
