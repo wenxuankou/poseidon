@@ -7,13 +7,10 @@ module Poseidon
       port: 8088,
       host: nil,
       workers: 1,
-      time_out: 300,
+      time_out: 30,
       config_ru_path: 'config.ru',
       stderr: $stderr,
       stdout: $stdout,
-      logger: nil,
-      protocol_parser: nil,
-      ssl: false
     }
 
     class << self
@@ -23,6 +20,7 @@ module Poseidon
           arg = arg.shift
           if arg
             instance_variable_set("@#{option}", arg)
+            self
           else
             instance_variable_get("@#{option}") || default_value
           end

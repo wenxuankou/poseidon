@@ -20,5 +20,6 @@ module Poseidon
   autoload :Master,           "poseidon/master"
   autoload :Worker,           "poseidon/worker"
   autoload :Connection,       "poseidon/connection"
+  autoload :VERSION,          "poseidon/version"
 
 end

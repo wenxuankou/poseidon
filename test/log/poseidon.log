@@ -1,0 +1,9 @@
+[2018-02-06 18:16:54] [63343] [poseidon-monitor] [INFO] Poseidon 0.1.0
+[2018-02-06 18:16:54] [63343] [poseidon-monitor] [INFO] Listening on port :::8088
+[2018-02-06 18:16:54] [63343] [poseidon-monitor] [INFO] Listening on port 0.0.0.0:8088
+[2018-02-06 18:16:54] [63343] [poseidon-monitor] [INFO] ===== Poseidon start done. =====
+[2018-02-06 18:16:55] [63345] [poseidon-master] [DEBUG] Loaded the app.
+[2018-02-06 18:16:55] [63343] [poseidon-monitor] [INFO] ===== Gracefully Shutdown! =====
+[2018-02-06 18:16:55] [63345] [poseidon-master] [DEBUG] Spawn workers done.
+[2018-02-06 18:16:55] [63345] [poseidon-master] [DEBUG] Received :QUIT signal. Killing all workers.
+[2018-02-06 18:16:55] [63346] [poseidon-worker] [DEBUG] Received QUIT signal. Worker quit.
